@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: vet_db
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: vet_auth
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - vet_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth_service
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://user:password@db:3306/vet_auth
+      - SECRET_KEY=your-secret-key-here
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./services/auth-service:/app
+      - /app/node_modules
+
+  web-client:
+    build: ./clients/web-client
+    container_name: web_client
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-service
+    volumes:
+      - ./clients/web-client:/app
+      - /app/node_modules
+
+volumes:
+  vet_db_data:
