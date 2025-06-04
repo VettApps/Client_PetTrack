@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Annotated
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from jose import JWTError, jwt
@@ -13,9 +13,21 @@ from dotenv import load_dotenv
 from . import models, schemas, database
 from .database import get_db
 from .config import settings
+from .routers import users
+
 
 # Cargar variables de entorno
 load_dotenv()
+
+# Crear el router
+router = APIRouter()
+
+# Endpoints
+@router.get("/users/", response_model=list[schemas.User])
+def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db)):
+    users = db.query(models.User).offset(skip).limit(limit).all()
+    return users
+
 
 # Crear aplicación FastAPI
 app = FastAPI(
@@ -25,6 +37,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Incluir el router
+app.include_router(users.router)
 
 # Configurar CORS
 app.add_middleware(
@@ -172,3 +187,4 @@ def create_first_superuser(db: Session):
 #         create_first_superuser(db)
 #     finally:
 #         db.close()
+

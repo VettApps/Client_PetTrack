@@ -18,11 +18,18 @@ class TokenData(BaseModel):
 
 class UserBase(BaseModel):
     email: EmailStr
-    full_name: Optional[str] = Field(None, max_length=100)
-    role: Role = Role.owner
+    full_name: Optional[str] = None
+    role: Role
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=8, max_length=50)
+    password: str
+
+class User(UserBase):
+    id: int
+    is_active: bool
+
+    class Config:
+        orm_mode = True
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(None, max_length=100)
@@ -38,3 +45,4 @@ class UserInDB(UserBase):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
