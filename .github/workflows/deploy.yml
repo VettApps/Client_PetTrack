@@ -30,6 +30,11 @@ jobs:
       run: |
         docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web-client:latest ./clients/web-client
         docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web-client:latest
+
+    - name: Build and push appointment-service
+      run: |
+        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-appointment-service:latest ./services/appointment-service
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-appointment-service:latest
     
     - name: Deploy to Azure App Service
       if: github.ref == 'refs/heads/dev'
