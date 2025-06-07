@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.9'
 
 services:
   db:
@@ -7,13 +7,14 @@ services:
     command: --default-authentication-plugin=mysql_native_password
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: vet_auth
+      MYSQL_DATABASE: vet_auth  
       MYSQL_USER: user
       MYSQL_PASSWORD: password
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - vet_db_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
@@ -24,16 +25,26 @@ services:
     container_name: auth_service
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=mysql+pymysql://user:password@db:3306/vet_auth
-      - SECRET_KEY=your-secret-key-here
-      - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+    env_file:
+      - ./services/auth-service/.env
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ./services/auth-service:/app
+
+  appointments-service:
+    build: ./services/appointments-service
+    container_name: appointments_service
+    ports:
+      - "8001:8000"
+    env_file:
+      - ./services/appointments-service/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./services/appointments-service:/app
       - /app/node_modules
 
   web-client:
@@ -43,9 +54,9 @@ services:
       - "8080:8080"
     depends_on:
       - auth-service
+      - appointments-service
     volumes:
       - ./clients/web-client:/app
-      - /app/node_modules
 
 volumes:
   vet_db_data:

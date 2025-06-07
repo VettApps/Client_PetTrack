@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Registrar Cita</title>
+</head>
+<body>
+  <h2>Registrar Nueva Cita</h2>
+  <form id="appointmentForm">
+    <label for="pet_name">Nombre de la Mascota:</label><br />
+    <input type="text" id="pet_name" name="pet_name" required /><br />
+
+    <label for="owner_name">Nombre del Dueño:</label><br />
+    <input type="text" id="owner_name" name="owner_name" required /><br />
+
+    <label for="date">Fecha y hora:</label><br />
+    <input type="datetime-local" id="date" name="date" required /><br />
+
+    <label for="reason">Motivo:</label><br />
+    <input type="text" id="reason" name="reason" /><br /><br />
+
+    <button type="submit">Guardar Cita</button>
+  </form>
+
+  <div id="msg"></div>
+
+  <script>
+    document.getElementById('appointmentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const pet_name = document.getElementById('pet_name').value;
+      const owner_name = document.getElementById('owner_name').value;
+      const date = document.getElementById('date').value;
+      const reason = document.getElementById('reason').value;
+
+      try {
+        const response = await fetch('http://localhost:8001/appointments', { // puerto 8001: appointments-service
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ pet_name, owner_name, date, reason })
+        });
+
+        if (response.ok) {
+          document.getElementById('msg').textContent = 'Cita guardada exitosamente';
+          e.target.reset();
+        } else {
+          const data = await response.json();
+          document.getElementById('msg').textContent = data.detail || 'Error al guardar la cita';
+        }
+      } catch (error) {
+        document.getElementById('msg').textContent = 'Error de conexión con el servidor';
+      }
+    });
+  </script>
+</body>
+</html>

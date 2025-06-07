@@ -1,190 +1,87 @@
-import os
-from datetime import datetime, timedelta
-from typing import Annotated
-
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import FastAPI, HTTPException, Depends, Request
+from pydantic import BaseModel
+from sqlalchemy import Column, Integer, String, Boolean, Enum, create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
 from fastapi.middleware.cors import CORSMiddleware
-from jose import JWTError, jwt
-from passlib.context import CryptContext
-from sqlalchemy.orm import Session
-from dotenv import load_dotenv
 
-from . import models, schemas, database
-from .database import get_db
-from .config import settings
-from .routers import users
+import enum
+from passlib.hash import bcrypt
+import os
 
+# ------------------ Configuración ------------------
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://user:password@db:3306/vet_auth")
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
-# Cargar variables de entorno
-load_dotenv()
+# ------------------ Modelo Enum y SQLAlchemy ------------------
+class RoleEnum(str, enum.Enum):
+    owner = "owner"
+    admin = "admin"
 
-# Crear el router
-router = APIRouter()
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(100))
+    role = Column(Enum(RoleEnum), default=RoleEnum.owner, nullable=False)
+    is_active = Column(Boolean, default=True)
 
-# Endpoints
-@router.get("/users/", response_model=list[schemas.User])
-def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db)):
-    users = db.query(models.User).offset(skip).limit(limit).all()
-    return users
+# ------------------ Pydantic Schemas ------------------
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    full_name: str | None = None
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
 
-# Crear aplicación FastAPI
-app = FastAPI(
-    title="Veterinary Auth Service",
-    description="Authentication and user management service for Veterinary App",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
+# ------------------ App Init ------------------
+app = FastAPI()
 
-# Incluir el router
-app.include_router(users.router)
+# ------------------ Base de datos ------------------
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-# Configurar CORS
+Base.metadata.create_all(bind=engine)
+
+# ------------------ Endpoints ------------------
+
+@app.post("/register")
+def register_user(user: RegisterRequest, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.email == user.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="El usuario ya existe")
+
+    new_user = User(
+        email=user.email,
+        hashed_password=bcrypt.hash(user.password),
+        full_name=user.full_name,
+        role="owner"
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"message": "Usuario registrado", "user_id": new_user.id}
+
+@app.post("/login")
+def login_user(credentials: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == credentials.email).first()
+    if not user or not bcrypt.verify(credentials.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+    return {"message": "Inicio de sesión exitoso", "user_id": user.id, "role": user.role}
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8080"],  # o ["*"] para pruebas
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"],   # Esto acepta GET, POST, OPTIONS, etc.
     allow_headers=["*"],
 )
-
-# Configuración de seguridad
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-# Crear tablas si no existen
-models.Base.metadata.create_all(bind=database.engine)
-
-# Funciones de utilidad
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
-
-def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
-
-def authenticate_user(db: Session, email: str, password: str):
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if not user or not verify_password(password, user.hashed_password):
-        return False
-    return user
-
-async def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
-    db: Annotated[Session, Depends(get_db)]
-):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-        token_data = schemas.TokenData(email=email)
-    except JWTError:
-        raise credentials_exception
-    
-    user = db.query(models.User).filter(models.User.email == token_data.email).first()
-    if user is None:
-        raise credentials_exception
-    return user
-
-async def get_current_active_user(
-    current_user: Annotated[schemas.UserInDB, Depends(get_current_user)]
-):
-    if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
-
-# Rutas de la API
-@app.post("/token", response_model=schemas.Token)
-async def login_for_access_token(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    db: Annotated[Session, Depends(get_db)]
-):
-    user = authenticate_user(db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email, "role": user.role},
-        expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
-
-@app.post("/register", response_model=schemas.UserInDB)
-def register_user(
-    user: schemas.UserCreate,
-    db: Annotated[Session, Depends(get_db)]
-):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    hashed_password = get_password_hash(user.password)
-    db_user = models.User(
-        email=user.email,
-        hashed_password=hashed_password,
-        full_name=user.full_name,
-        role=user.role
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
-
-@app.get("/users/me", response_model=schemas.UserInDB)
-async def read_users_me(
-    current_user: Annotated[schemas.UserInDB, Depends(get_current_active_user)]
-):
-    return current_user
-
-# Health check endpoint
-@app.get("/health")
-def health_check():
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
-
-# Crear usuario admin inicial si no existe
-def create_first_superuser(db: Session):
-    if settings.FIRST_SUPERUSER_EMAIL and settings.FIRST_SUPERUSER_PASSWORD:
-        user = db.query(models.User).filter(
-            models.User.email == settings.FIRST_SUPERUSER_EMAIL
-        ).first()
-        if not user:
-            db_user = models.User(
-                email=settings.FIRST_SUPERUSER_EMAIL,
-                hashed_password=get_password_hash(settings.FIRST_SUPERUSER_PASSWORD),
-                full_name="Initial Admin",
-                role=Role.admin,
-                is_active=True
-            )
-            db.add(db_user)
-            db.commit()
-
-# Ejecutar al inicio (opcional, podrías mover esto a un script aparte)
-# @app.on_event("startup")
-# def on_startup():
-#     db = SessionLocal()
-#     try:
-#         create_first_superuser(db)
-#     finally:
-#         db.close()
-
