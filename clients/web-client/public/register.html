@@ -119,7 +119,7 @@ e Registro Mejorada
       const full_name = document.getElementById('full_name').value;
 
       try {
-        const response = await fetch('/api/auth/register', {
+        const response = await fetch('http://localhost:8002/auth/register', { // puerto 8002: api-gateway
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, full_name })

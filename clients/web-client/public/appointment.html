@@ -34,7 +34,7 @@
       const reason = document.getElementById('reason').value;
 
       try {
-        const response = await fetch('http://localhost:8001/appointments', { // puerto 8001: appointments-service
+        const response = await fetch('http://localhost:8002/appointments', { // puerto 8002: api-gateway
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
