@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 import httpx
 import os
 
@@ -17,7 +18,7 @@ async def proxy_auth(request: Request, path: str):
             headers=request.headers.raw,
             content=await request.body()
         )
-    return response.json(), response.status_code
+    return JSONResponse(content=response.json(), status_code=response.status_code)
 
 @app.api_route("/appointments/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def proxy_appointments(request: Request, path: str):
@@ -29,4 +30,4 @@ async def proxy_appointments(request: Request, path: str):
             headers=request.headers.raw,
             content=await request.body()
         )
-    return response.json(), response.status_code
+    return JSONResponse(content=response.json(), status_code=response.status_code)
