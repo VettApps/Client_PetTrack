@@ -8,7 +8,7 @@
   <style>
     body {
       font-family: 'Roboto', sans-serif;
-      background-color: #e8f5e9; /* Verde claro */
+      background-color: #e8f5e9;
       margin: 0;
       padding: 0;
       display: flex;
@@ -18,7 +18,7 @@
       height: 100vh;
     }
     h2 {
-      color: #388e3c; /* Verde más oscuro */
+      color: #388e3c;
       margin-bottom: 20px;
       font-size: 2em;
       text-align: center;
@@ -38,7 +38,7 @@
     }
     label {
       font-weight: 500;
-      color: #555; /* Gris oscuro */
+      color: #555;
       display: block;
       margin-bottom: 5px;
       text-align: left;
@@ -51,12 +51,12 @@
       transition: border-color 0.3s;
     }
     input:focus {
-      border-color: #66bb6a; /* Verde suave */
+      border-color: #66bb6a;
       outline: none;
     }
     button {
       cursor: pointer;
-      background-color: #66bb6a; /* Verde suave */
+      background-color: #66bb6a;
       border: none;
       color: white;
       padding: 12px;
@@ -66,18 +66,18 @@
       transition: background-color 0.3s, transform 0.2s;
     }
     button:hover {
-      background-color: #4caf50; /* Verde más oscuro */
+      background-color: #4caf50;
       transform: translateY(-2px);
     }
     .register-link {
       margin-top: 15px;
       display: inline-block;
       text-decoration: none;
-      color: #388e3c; /* Verde más oscuro */
+      color: #388e3c;
       font-weight: 500;
     }
     .error {
-      color: #f44336; /* Rojo */
+      color: #f44336;
       margin-top: 10px;
     }
   </style>
@@ -106,6 +106,8 @@
   </div>
 
   <script>
+    const API_URL = 'http://localhost:8002/auth';
+
     async function login(event) {
       event.preventDefault();
 
@@ -113,24 +115,31 @@
       const password = document.getElementById('password').value;
 
       try {
-        const response = await fetch('http://localhost:8002/auth/login', { // puerto 8002: api-gateway
+        const response = await fetch(`${API_URL}/login`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
         });
 
+        const data = await response.json();
+
         if (response.ok) {
-          // Login exitoso: redirigir a menú
+          // Guardar token JWT y rol en localStorage
+          localStorage.setItem('access_token', data.access_token);
+
+          // Decodificar JWT para obtener el rol
+          const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+          localStorage.setItem('role', payload.role);
+
+          // Redirigir automáticamente al menú
           window.location.href = 'menu.html';
         } else {
-          // Login fallido
-          const data = await response.json();
-          document.getElementById('error-message').textContent = data.message || 'Credenciales incorrectas';
+          document.getElementById('error-message').textContent =
+            data.detail || 'Credenciales incorrectas';
         }
       } catch (error) {
-        document.getElementById('error-message').textContent = 'Error de conexión con el servidor';
+        document.getElementById('error-message').textContent =
+          'Error de conexión con el servidor';
       }
     }
   </script>

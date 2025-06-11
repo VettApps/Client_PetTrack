@@ -21,8 +21,12 @@ class UserBase(BaseModel):
     full_name: Optional[str] = None
     role: Role
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
+    email: EmailStr
     password: str
+    full_name: Optional[str] = None
+    role: Role  # Añadido para recibir rol desde register.html
+
 
 class User(UserBase):
     id: int
@@ -46,3 +50,12 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class UserOut(BaseModel):
+    id: int
+    email: str
+    full_name: str | None
+    role: Role
+    is_active: bool
+
+    class Config:
+        orm_mode = True

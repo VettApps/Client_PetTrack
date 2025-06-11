@@ -42,4 +42,4 @@ jobs:
       with:
         app-name: 'veterinary-app'
         slot-name: 'production'
-        images: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-auth-service:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web-client:latest'
+        images: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-auth-service:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web-client:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-appointment-service:latest'
