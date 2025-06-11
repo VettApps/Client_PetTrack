@@ -152,5 +152,5 @@ volumes:
     volumes:
       - ./clients/web-client:/app
 
-volumes:
-  vet_db_data: 
+  volumes:
+    vet_db_data:
