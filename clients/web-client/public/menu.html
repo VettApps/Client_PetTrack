@@ -8,7 +8,7 @@
   <style>
     body {
       font-family: 'Roboto', sans-serif;
-      background-color: #e8f5e9; /* Verde claro */
+      background-color: #e8f5e9;
       margin: 0;
       padding: 0;
       display: flex;
@@ -17,7 +17,7 @@
     }
     h1 {
       text-align: center;
-      color: #388e3c; /* Verde más oscuro */
+      color: #388e3c;
       margin-top: 20px;
       font-size: 2.5em;
     }
@@ -37,7 +37,7 @@
     }
     .menu-button {
       display: block;
-      background-color: #66bb6a; /* Verde suave */
+      background-color: #66bb6a;
       color: white;
       padding: 15px;
       border-radius: 4px;
@@ -48,7 +48,7 @@
       font-size: 1.2em;
     }
     .menu-button:hover {
-      background-color: #4caf50; /* Verde más oscuro */
+      background-color: #4caf50;
       transform: translateY(-2px);
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
@@ -72,6 +72,34 @@
   <div class="footer">
     <p>&copy; 2025 Veterinaria. Todos los derechos reservados.</p>
   </div>
+
+  <script>
+    window.onload = function() {
+      const role = localStorage.getItem('role');
+      if (!role) {
+        // Si no está logueado, volver al login
+        window.location.href = 'login.html';
+      }
+
+      // Si es owner, ocultar 'Agendar Cita'
+      if (role === 'owner') {
+        document.querySelector('a[href="appointment.html"]').style.display = 'none';
+      }
+
+      // Mostrar el rol actual en el footer
+      const footer = document.querySelector('.footer');
+      footer.innerHTML += `<p>Rol actual: ${role}</p>`;
+    };
+
+    function logout() {
+      const confirmLogout = confirm("¿Estás seguro que deseas cerrar sesión?");
+      if (confirmLogout) {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('role');
+        window.location.href = 'login.html';
+      }
+    }
+  </script>
 
 </body>
 </html>

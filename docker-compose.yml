@@ -19,6 +19,18 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
       retries: 10
+  
+  api-gateway:
+    build: ./services/api-gateway
+    container_name: api_gateway
+    ports:
+      - "8002:8002"
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:8000
+      - APPOINTMENTS_SERVICE_URL=http://appointments-service:8000
+    depends_on:
+      - auth-service
+      - appointments-service
 
   auth-service:
     build: ./services/auth-service
@@ -47,17 +59,6 @@ services:
       - ./services/appointments-service:/app
       - /app/node_modules
 
-api-gateway:
-  build: ./services/api-gateway
-  container_name: api_gateway
-  ports:
-    - "8002:8002"
-  environment:
-    - AUTH_SERVICE_URL=http://auth-service:8000
-    - APPOINTMENTS_SERVICE_URL=http://appointments-service:8000
-  depends_on:
-    - auth-service
-    - appointments-service
 
   web-client:
     build: ./clients/web-client
